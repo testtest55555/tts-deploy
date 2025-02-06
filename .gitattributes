@@ -1,0 +1,7 @@
+# Do not change! Set by Modelbit.
+deployments/** filter=modelbit
+packages/** filter=modelbit
+common/** filter=modelbit
+registry/registry.txt filter=modelbit
+training_jobs/** filter=modelbit
+
