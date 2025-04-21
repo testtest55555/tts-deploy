@@ -1,7 +1,7 @@
 owner: bpdatal5@gmail.com
 runtimeInfo:
   capabilities:
-    - gpu=T4
+    - gpu=A10G
   mainFunction: generate_speech
   mainFunctionArgs:
     - text:str
