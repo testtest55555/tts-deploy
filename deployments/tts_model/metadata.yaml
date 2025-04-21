@@ -3,5 +3,6 @@ runtimeInfo:
   mainFunction: generate_speech
   mainFunctionArgs:
     - text:str
+    - return:str
   pythonVersion: '3.11'
 schemaVersion: 2
