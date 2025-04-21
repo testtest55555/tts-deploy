@@ -1,0 +1,7 @@
+owner: bpdatal5@gmail.com
+runtimeInfo:
+  mainFunction: predict_weather
+  mainFunctionArgs:
+    - days_from_now:int
+  pythonVersion: '3.11'
+schemaVersion: 2
