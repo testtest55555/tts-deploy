@@ -1,0 +1,89 @@
+_: MBFileStub
+contentHash: sha1:81a8cf782167ee7b907432cca2590f2f970b2caa
+createdAt: 2025-04-21 23:05:50+00:00
+metadata:
+  fileSize: 113336277
+  object:
+    class: Synthesizer
+    description: |-
+      Synthesizer(
+        (tts_model): Tacotron2(
+          (embedding): Embedding(67, 512, padding_idx=0)
+          (encoder): Encoder(
+            (convolutions): ModuleList(
+              (0-2): 3 x ConvBNBlock(
+                (convolution1d): Conv1d(512, 512, kernel_size=(5,), stride=(1,), padding=(2,))
+                (batch_normalization): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (dropout): Dropout(p=0.5, inplace=False)
+                (activation): ReLU()
+              )
+            )
+            (lstm): LSTM(512, 256, batch_first=True, bidirectional=True)
+          )
+          (decoder): Decoder(
+            (prenet): Prenet(
+              (linear_layers): ModuleList(
+                (0): Linear(
+                  (linear_layer): Linear(in_features=80, out_features=256, bias=False)
+                )
+                (1): Linear(
+                  (linear_layer): Linear(in_features=256, out_features=256, bias=False)
+                )
+              )
+            )
+            (attention_rnn): LSTMCell(768, 1024)
+            (attention): OriginalAttention(
+              (query_layer): Linear(
+                (linear_layer): Linear(in_features=1024, out_features=128, bias=False)
+              )
+              (inputs_layer): Linear(
+                (linear_layer): Linear(in_features=512, out_features=128, bias=False)
+              )
+              (v): Linear(
+                (linear_layer): Linear(in_features=128, out_features=1, bias=True)
+              )
+              (location_layer): LocationLayer(
+                (location_conv1d): Conv1d(2, 32, kernel_size=(31,), stride=(1,), padding=(15,), bias=False)
+                (location_dense): Linear(
+                  (linear_layer): Linear(in_features=32, out_features=128, bias=False)
+                )
+              )
+            )
+            (decoder_rnn): LSTMCell(1536, 1024)
+            (linear_projection): Linear(
+              (linear_layer): Linear(in_features=1536, out_features=160, bias=True)
+            )
+            (stopnet): Sequential(
+              (0): Dropout(p=0.1, inplace=False)
+              (1): Linear(
+                (linear_layer): Linear(in_features=1184, out_features=1, bias=True)
+              )
+            )
+          )
+          (postnet): Postnet(
+            (convolutions): ModuleList(
+              (0): ConvBNBlock(
+                (convolution1d): Conv1d(80, 512, kernel_size=(5,), stride=(1,), padding=(2,))
+                (batch_normalization): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (dropout): Dropout(p=0.5, inplace=False)
+                (activation): Tanh()
+              )
+              (1-3): 3 x ConvBNBlock(
+                (convolution1d): Conv1d(512, 512, kernel_size=(5,), stride=(1,), padding=(2,))
+                (batch_normalization): BatchNorm1d(512, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (dropout): Dropout(p=0.5, inplace=False)
+                (activation): Tanh()
+              )
+              (4): ConvBNBlock(
+                (convolution1d): Conv1d(512, 80, kernel_size=(5,), stride=(1,), padding=(2,))
+                (batch_normalization): BatchNorm1d(80, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+                (dropout): Dropout(p=0.5, inplace=False)
+                (activation): Identity()
+              )
+            )
+          )
+        )
+      )
+    module: TTS.utils.synthesizer
+    package: TTS==0.22.0
+schemaVersion: 1
