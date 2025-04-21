@@ -1,10 +1,7 @@
 owner: bpdatal5@gmail.com
 runtimeInfo:
-  capabilities:
-    - gpu=A10G
   mainFunction: generate_speech
   mainFunctionArgs:
     - text:str
-    - return:bytes
   pythonVersion: '3.11'
 schemaVersion: 2

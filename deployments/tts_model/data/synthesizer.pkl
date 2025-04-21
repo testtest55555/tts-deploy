@@ -1,8 +1,8 @@
 _: MBFileStub
-contentHash: sha1:81a8cf782167ee7b907432cca2590f2f970b2caa
-createdAt: 2025-04-21 23:05:50+00:00
+contentHash: sha1:206b480e17df99f062fb1402a86c13551fe0e0ee
+createdAt: 2025-04-21 23:38:16+00:00
 metadata:
-  fileSize: 113336277
+  fileSize: 113336447
   object:
     class: Synthesizer
     description: |-
