@@ -3,6 +3,7 @@ from content.tts_wrapper import TTSModel
 import torch
 import io
 import torchaudio
+import base64
 
 # main function
 def generate_speech(text: str) -> bytes:
@@ -17,7 +18,7 @@ def generate_speech(text: str) -> bytes:
         buffer = io.BytesIO()
         torchaudio.save(buffer, wav_tensor, sample_rate=22050, format="wav")
         buffer.seek(0)
-        return buffer.getvalue()
+        return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
 # to run locally via git & terminal, uncomment the following lines
 # if __name__ == "__main__":
