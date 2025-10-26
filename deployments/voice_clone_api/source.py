@@ -22,21 +22,8 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
 
-        # Set TTS cache directory to a writable location
-        import os
-        import tempfile
-
-        # Create a temporary directory for TTS cache
-        temp_dir = tempfile.mkdtemp()
-        os.environ['TTS_HOME'] = temp_dir
-
-        # Load model inside the function
+        # Load model inside the function (not globally)
         from TTS.api import TTS
-        import torch
-
-        # Force CPU usage
-        torch.set_num_threads(1)
-
         tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
 
         # Load your trained weights
