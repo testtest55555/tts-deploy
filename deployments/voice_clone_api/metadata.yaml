@@ -1,7 +1,5 @@
 owner: bpdatal5@gmail.com
 runtimeInfo:
-  capabilities:
-    - gpu=A10G
   mainFunction: generate_voice_audio
   mainFunctionArgs:
     - text:str
