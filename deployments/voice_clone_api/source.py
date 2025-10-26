@@ -4,6 +4,8 @@ import os
 import torch
 import base64
 import io
+import tempfile
+import shutil
 
 MODEL_PATH = 'phase2_training/checkpoints/voice_model_20241220_143000_epoch_268.pt'
 REFERENCE_AUDIO_PATH = 'dataset/wavs/qCGSu_5.wav'
@@ -31,6 +33,10 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         # Force CPU usage
         torch.set_num_threads(1)
 
+        # Set up writable cache directory for TTS
+        cache_dir = tempfile.mkdtemp()
+        os.environ['TTS_CACHE'] = cache_dir
+        
         # Load TTS model from local directory
         tts_model = TTS("tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2")
 
@@ -80,3 +86,10 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
     except Exception as e:
         print(f"❌ Error generating audio: {e}")
         raise e
+    finally:
+        # Clean up temporary cache directory
+        try:
+            if 'cache_dir' in locals():
+                shutil.rmtree(cache_dir, ignore_errors=True)
+        except:
+            pass
