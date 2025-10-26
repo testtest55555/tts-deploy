@@ -31,8 +31,26 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         os.environ['HF_HOME'] = cache_dir
         os.environ['TRANSFORMERS_CACHE'] = cache_dir
         os.environ['TORCH_HOME'] = cache_dir
+        os.environ['TTS_DISABLE_TOS'] = '1'  # Disable terms of service prompt
         
         print(f"🔧 Using cache directory: {cache_dir}")
+        
+        # Pre-accept terms of service to avoid interactive prompts
+        model_dir = "tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2"
+        tos_file = os.path.join(model_dir, "tos_agreed.txt")
+        if not os.path.exists(tos_file):
+            os.makedirs(model_dir, exist_ok=True)
+            with open(tos_file, 'w') as f:
+                f.write("1")  # Accept terms of service
+            print("✅ Pre-accepted terms of service")
+        
+        # Monkey patch input function to avoid interactive prompts
+        import builtins
+        original_input = builtins.input
+        def mock_input(prompt=""):
+            print(f"🤖 Auto-accepting prompt: {prompt.strip()}")
+            return "y"
+        builtins.input = mock_input
         
         # Load model from local path
         from TTS.api import TTS
@@ -46,7 +64,16 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         torch.set_num_threads(1)
         
         # Load TTS model from local directory
-        tts_model = TTS("tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2")
+        try:
+            print("🔄 Loading TTS model...")
+            tts_model = TTS(model_dir)
+            print("✅ TTS model loaded successfully")
+        except Exception as e:
+            print(f"❌ Error loading TTS model: {e}")
+            raise e
+        finally:
+            # Restore original input function
+            builtins.input = original_input
 
         # Load your trained weights if available
         if MODEL_PATH and os.path.exists(MODEL_PATH):
