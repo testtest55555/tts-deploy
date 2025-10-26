@@ -22,6 +22,18 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
 
+        # Set up writable cache directory for TTS BEFORE importing TTS
+        cache_dir = tempfile.mkdtemp()
+        os.environ['TTS_CACHE'] = cache_dir
+        os.environ['TTS_HOME'] = cache_dir
+        os.environ['XDG_CACHE_HOME'] = cache_dir
+        os.environ['HOME'] = cache_dir
+        os.environ['HF_HOME'] = cache_dir
+        os.environ['TRANSFORMERS_CACHE'] = cache_dir
+        os.environ['TORCH_HOME'] = cache_dir
+        
+        print(f"🔧 Using cache directory: {cache_dir}")
+        
         # Load model from local path
         from TTS.api import TTS
         import torch
@@ -32,10 +44,6 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
 
         # Force CPU usage
         torch.set_num_threads(1)
-
-        # Set up writable cache directory for TTS
-        cache_dir = tempfile.mkdtemp()
-        os.environ['TTS_CACHE'] = cache_dir
         
         # Load TTS model from local directory
         tts_model = TTS("tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2")
