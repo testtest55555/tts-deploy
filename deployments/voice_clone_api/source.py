@@ -2,10 +2,8 @@ import modelbit, sys
 from TTS.api import TTS
 import os
 import torch
-import numpy as np
-import io
-import soundfile as sf
 import base64
+import io
 
 MODEL_PATH = 'phase2_training/checkpoints/voice_model_20241220_143000_epoch_268.pt'
 REFERENCE_AUDIO_PATH = 'dataset/wavs/qCGSu_5.wav'
@@ -13,7 +11,7 @@ REFERENCE_AUDIO_PATH = 'dataset/wavs/qCGSu_5.wav'
 # main function
 def generate_voice_audio(text: str, language: str = "en") -> str:
     """
-    Generate audio from text using your trained voice model
+    Generate audio from text using locally downloaded TTS model
     """
     try:
         print(f"🎙️ Generating audio for: '{text[:50]}...'")
@@ -22,11 +20,25 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
 
-        # Load model inside the function (not globally)
+        # Set TTS home to local directory
+        import os
+        os.environ['TTS_HOME'] = '/tmp/tts_models_local'
+
+        # Load model from local path
         from TTS.api import TTS
+        import torch
+        import numpy as np
+        import soundfile as sf
+        import base64
+        import io
+
+        # Force CPU usage
+        torch.set_num_threads(1)
+
+        # Load TTS model from local directory
         tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
 
-        # Load your trained weights
+        # Load your trained weights if available
         if MODEL_PATH and os.path.exists(MODEL_PATH):
             checkpoint = torch.load(MODEL_PATH, map_location='cpu')
             print("✅ Trained weights loaded")
