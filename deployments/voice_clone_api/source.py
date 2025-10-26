@@ -44,6 +44,13 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
                 f.write("1")  # Accept terms of service
             print("✅ Pre-accepted terms of service")
         
+        # Debug: Check what files are in the model directory
+        if os.path.exists(model_dir):
+            files = os.listdir(model_dir)
+            print(f"📁 Model directory contents: {files}")
+        else:
+            print(f"❌ Model directory does not exist: {model_dir}")
+        
         # Monkey patch input function to avoid interactive prompts
         import builtins
         original_input = builtins.input
@@ -66,10 +73,31 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         # Load TTS model from local directory
         try:
             print("🔄 Loading TTS model...")
-            tts_model = TTS(model_dir)
-            print("✅ TTS model loaded successfully")
+            # Try different approaches to load the local model
+            try:
+                # Method 1: Use model_path parameter
+                tts_model = TTS(model_path=model_dir)
+                print("✅ TTS model loaded successfully with model_path")
+            except Exception as e1:
+                print(f"❌ Method 1 failed: {e1}")
+                try:
+                    # Method 2: Use Synthesizer directly
+                    print("🔄 Trying Synthesizer approach...")
+                    from TTS.utils.synthesizer import Synthesizer
+                    tts_model = Synthesizer(model_path=model_dir, use_cuda=False)
+                    print("✅ TTS model loaded successfully with Synthesizer")
+                except Exception as e2:
+                    print(f"❌ Method 2 failed: {e2}")
+                    try:
+                        # Method 3: Try with model name and path
+                        print("🔄 Trying model name + path approach...")
+                        tts_model = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", model_path=model_dir)
+                        print("✅ TTS model loaded successfully with model name + path")
+                    except Exception as e3:
+                        print(f"❌ Method 3 failed: {e3}")
+                        raise e1
         except Exception as e:
-            print(f"❌ Error loading TTS model: {e}")
+            print(f"❌ All methods failed: {e}")
             raise e
         finally:
             # Restore original input function
@@ -77,20 +105,36 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
 
         # Load your trained weights if available
         if MODEL_PATH and os.path.exists(MODEL_PATH):
-            checkpoint = torch.load(MODEL_PATH, map_location='cpu')
+            checkpoint = torch.load(MODEL_PATH, map_location='cpu', weights_only=False)
             if 'model_state_dict' in checkpoint and checkpoint['model_state_dict'] is not None:
-                tts_model.synthesizer.tts_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+                # Handle both TTS and Synthesizer objects
+                if hasattr(tts_model, 'synthesizer'):
+                    # TTS object
+                    tts_model.synthesizer.tts_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+                else:
+                    # Synthesizer object
+                    tts_model.tts_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
                 print("✅ Trained weights applied to model")
             else:
                 print("⚠️  No trained weights found in checkpoint")
 
         # Generate audio using XTTS
         try:
-            audio_data = tts_model.tts(
-                text=text,
-                speaker_wav=REFERENCE_AUDIO_PATH,
-                language=language
-            )
+            # Check if we have a TTS object or Synthesizer object
+            if hasattr(tts_model, 'tts'):
+                # TTS object
+                audio_data = tts_model.tts(
+                    text=text,
+                    speaker_wav=REFERENCE_AUDIO_PATH,
+                    language=language
+                )
+            else:
+                # Synthesizer object
+                audio_data = tts_model.tts(
+                    text=text,
+                    speaker_wav=REFERENCE_AUDIO_PATH,
+                    language=language
+                )
         except Exception as e:
             print(f"❌ Error in TTS generation: {e}")
             raise e
