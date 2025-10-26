@@ -125,7 +125,7 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
                 tts_model = Synthesizer(
                     tts_checkpoint=model_path,
                     tts_config_path=config_path,
-                    speakers_file_path=speakers_path,
+                    speakers_file=speakers_path,
                     vocab_path=vocab_path,
                     use_cuda=False
                 )
@@ -153,12 +153,25 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
                     print(f"✅ Copied model files to cache: {cache_model_dir}")
                     
                     # Try loading from cache
+                    from TTS.api import TTS
                     tts_model = TTS(model_path=cache_model_dir)
                     print("✅ TTS model loaded successfully from cache")
                     
                 except Exception as e2:
                     print(f"❌ Method 2 failed: {e2}")
-                    raise e1
+                    
+                    # Method 3: Try loading with minimal parameters
+                    try:
+                        print("🔄 Trying minimal Synthesizer approach...")
+                        tts_model = Synthesizer(
+                            tts_checkpoint=model_path,
+                            tts_config_path=config_path,
+                            use_cuda=False
+                        )
+                        print("✅ TTS model loaded successfully with minimal parameters")
+                    except Exception as e3:
+                        print(f"❌ Method 3 failed: {e3}")
+                        raise e1
                     
         except Exception as e:
             print(f"❌ All methods failed: {e}")
