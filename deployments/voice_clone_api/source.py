@@ -9,6 +9,7 @@ import shutil
 
 MODEL_PATH = 'phase2_training/checkpoints/voice_model_20241220_143000_epoch_268.pt'
 REFERENCE_AUDIO_PATH = 'dataset/wavs/qCGSu_5.wav'
+MODEL_DIR = 'tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2'
 
 # main function
 def generate_voice_audio(text: str, language: str = "en") -> str:
@@ -36,7 +37,7 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         print(f"🔧 Using cache directory: {cache_dir}")
         
         # Pre-accept terms of service to avoid interactive prompts
-        model_dir = "tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2"
+        model_dir = os.path.abspath(MODEL_DIR)  # Use absolute path
         tos_file = os.path.join(model_dir, "tos_agreed.txt")
         if not os.path.exists(tos_file):
             os.makedirs(model_dir, exist_ok=True)
@@ -48,6 +49,13 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         if os.path.exists(model_dir):
             files = os.listdir(model_dir)
             print(f"📁 Model directory contents: {files}")
+            
+            # Ensure config.json exists and is readable
+            config_path = os.path.join(model_dir, "config.json")
+            if os.path.exists(config_path):
+                print(f"✅ Config file found: {config_path}")
+            else:
+                print(f"❌ Config file missing: {config_path}")
         else:
             print(f"❌ Model directory does not exist: {model_dir}")
         
@@ -70,38 +78,100 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         # Force CPU usage
         torch.set_num_threads(1)
         
+        # Monkey patch torch.load to fix weights_only issue
+        original_torch_load = torch.load
+        def patched_torch_load(f, map_location=None, pickle_module=None, weights_only=None, **kwargs):
+            # Force weights_only=False for TTS model loading
+            if weights_only is None:
+                weights_only = False
+            return original_torch_load(f, map_location=map_location, pickle_module=pickle_module, weights_only=weights_only, **kwargs)
+        torch.load = patched_torch_load
+        
+        # Also patch TTS internal loading functions
+        try:
+            from TTS.utils.io import load_fsspec
+            original_load_fsspec = load_fsspec
+            def patched_load_fsspec(f, map_location=None, **kwargs):
+                return original_load_fsspec(f, map_location=map_location, weights_only=False, **kwargs)
+            import TTS.utils.io
+            TTS.utils.io.load_fsspec = patched_load_fsspec
+            print("✅ Patched TTS internal loading functions")
+        except Exception as e:
+            print(f"⚠️  Could not patch TTS internal functions: {e}")
+        
         # Load TTS model from local directory
         try:
             print("🔄 Loading TTS model...")
-            # Try different approaches to load the local model
+            
+            # Method 1: Load Synthesizer with explicit file paths
             try:
-                # Method 1: Use model_path parameter
-                tts_model = TTS(model_path=model_dir)
-                print("✅ TTS model loaded successfully with model_path")
+                print("🔄 Trying Synthesizer with explicit paths...")
+                from TTS.utils.synthesizer import Synthesizer
+                
+                # Define explicit paths
+                model_path = os.path.join(model_dir, "model.pth")
+                config_path = os.path.join(model_dir, "config.json")
+                speakers_path = os.path.join(model_dir, "speakers_xtts.pth")
+                vocab_path = os.path.join(model_dir, "vocab.json")
+                
+                # Verify all files exist
+                for path, name in [(model_path, "model"), (config_path, "config"), (speakers_path, "speakers"), (vocab_path, "vocab")]:
+                    if not os.path.exists(path):
+                        raise FileNotFoundError(f"{name} file not found: {path}")
+                
+                print(f"✅ All required files found")
+                
+                # Load Synthesizer with explicit paths
+                tts_model = Synthesizer(
+                    tts_checkpoint=model_path,
+                    tts_config_path=config_path,
+                    speakers_file_path=speakers_path,
+                    vocab_path=vocab_path,
+                    use_cuda=False
+                )
+                print("✅ TTS model loaded successfully with explicit paths")
+                
             except Exception as e1:
                 print(f"❌ Method 1 failed: {e1}")
+                
+                # Method 2: Try copying files to cache directory
                 try:
-                    # Method 2: Use Synthesizer directly
-                    print("🔄 Trying Synthesizer approach...")
-                    from TTS.utils.synthesizer import Synthesizer
-                    tts_model = Synthesizer(model_path=model_dir, use_cuda=False)
-                    print("✅ TTS model loaded successfully with Synthesizer")
+                    print("🔄 Trying cache directory approach...")
+                    
+                    # Create model directory in cache
+                    cache_model_dir = os.path.join(cache_dir, "tts_models--multilingual--multi-dataset--xtts_v2")
+                    os.makedirs(cache_model_dir, exist_ok=True)
+                    
+                    # Copy all model files to cache
+                    import shutil
+                    for file in ["model.pth", "config.json", "speakers_xtts.pth", "vocab.json", "hash.md5", "tos_agreed.txt"]:
+                        src = os.path.join(model_dir, file)
+                        dst = os.path.join(cache_model_dir, file)
+                        if os.path.exists(src):
+                            shutil.copy2(src, dst)
+                    
+                    print(f"✅ Copied model files to cache: {cache_model_dir}")
+                    
+                    # Try loading from cache
+                    tts_model = TTS(model_path=cache_model_dir)
+                    print("✅ TTS model loaded successfully from cache")
+                    
                 except Exception as e2:
                     print(f"❌ Method 2 failed: {e2}")
-                    try:
-                        # Method 3: Try with model name and path
-                        print("🔄 Trying model name + path approach...")
-                        tts_model = TTS(model_name="tts_models/multilingual/multi-dataset/xtts_v2", model_path=model_dir)
-                        print("✅ TTS model loaded successfully with model name + path")
-                    except Exception as e3:
-                        print(f"❌ Method 3 failed: {e3}")
-                        raise e1
+                    raise e1
+                    
         except Exception as e:
             print(f"❌ All methods failed: {e}")
             raise e
         finally:
-            # Restore original input function
+            # Restore original functions
             builtins.input = original_input
+            torch.load = original_torch_load
+            try:
+                import TTS.utils.io
+                TTS.utils.io.load_fsspec = original_load_fsspec
+            except:
+                pass
 
         # Load your trained weights if available
         if MODEL_PATH and os.path.exists(MODEL_PATH):
@@ -111,9 +181,11 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
                 if hasattr(tts_model, 'synthesizer'):
                     # TTS object
                     tts_model.synthesizer.tts_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
-                else:
+                elif hasattr(tts_model, 'tts_model'):
                     # Synthesizer object
                     tts_model.tts_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+                else:
+                    print("⚠️  Unknown model object type")
                 print("✅ Trained weights applied to model")
             else:
                 print("⚠️  No trained weights found in checkpoint")
@@ -128,13 +200,15 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
                     speaker_wav=REFERENCE_AUDIO_PATH,
                     language=language
                 )
-            else:
-                # Synthesizer object
+            elif hasattr(tts_model, 'tts_model'):
+                # Synthesizer object - use tts method
                 audio_data = tts_model.tts(
                     text=text,
                     speaker_wav=REFERENCE_AUDIO_PATH,
                     language=language
                 )
+            else:
+                raise ValueError("Unknown model object type - cannot generate audio")
         except Exception as e:
             print(f"❌ Error in TTS generation: {e}")
             raise e
@@ -166,9 +240,20 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         print(f"❌ Error generating audio: {e}")
         raise e
     finally:
-        # Clean up temporary cache directory
+        # Clean up temporary cache directory and memory
         try:
             if 'cache_dir' in locals():
                 shutil.rmtree(cache_dir, ignore_errors=True)
+            
+            # Force garbage collection to prevent memory issues
+            import gc
+            gc.collect()
+            
+            # Clear any remaining references
+            if 'tts_model' in locals():
+                del tts_model
+            if 'audio_data' in locals():
+                del audio_data
+                
         except:
             pass
