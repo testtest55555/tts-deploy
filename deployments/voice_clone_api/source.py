@@ -1,9 +1,4 @@
 import modelbit, sys
-from TTS.api import TTS
-import os
-import torch
-import base64
-import io
 
 MODEL_PATH = 'phase2_training/checkpoints/voice_model_20241220_143000_epoch_268.pt'
 REFERENCE_AUDIO_PATH = 'dataset/wavs/qCGSu_5.wav'
@@ -20,10 +15,6 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         if not text or not text.strip():
             raise ValueError("Text cannot be empty")
 
-        # Set TTS home to local directory
-        import os
-        os.environ['TTS_HOME'] = '/tmp/tts_models_local'
-
         # Load model from local path
         from TTS.api import TTS
         import torch
@@ -36,19 +27,27 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         torch.set_num_threads(1)
 
         # Load TTS model from local directory
-        tts_model = TTS("tts_models/multilingual/multi-dataset/xtts_v2")
+        tts_model = TTS("/tts_models_local/tts/tts_models--multilingual--multi-dataset--xtts_v2")
 
         # Load your trained weights if available
         if MODEL_PATH and os.path.exists(MODEL_PATH):
             checkpoint = torch.load(MODEL_PATH, map_location='cpu')
-            print("✅ Trained weights loaded")
+            if 'model_state_dict' in checkpoint and checkpoint['model_state_dict'] is not None:
+                tts_model.synthesizer.tts_model.load_state_dict(checkpoint['model_state_dict'], strict=False)
+                print("✅ Trained weights applied to model")
+            else:
+                print("⚠️  No trained weights found in checkpoint")
 
         # Generate audio using XTTS
-        audio_data = tts_model.tts(
-            text=text,
-            speaker_wav=REFERENCE_AUDIO_PATH,
-            language=language
-        )
+        try:
+            audio_data = tts_model.tts(
+                text=text,
+                speaker_wav=REFERENCE_AUDIO_PATH,
+                language=language
+            )
+        except Exception as e:
+            print(f"❌ Error in TTS generation: {e}")
+            raise e
 
         # Convert to numpy array if needed
         if isinstance(audio_data, list):
