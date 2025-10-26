@@ -6,6 +6,4 @@ runtimeInfo:
     - language:str
     - return:str
   pythonVersion: '3.11'
-  systemPackages:
-    - build-essential
 schemaVersion: 2
