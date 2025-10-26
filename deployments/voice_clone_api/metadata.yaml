@@ -1,0 +1,13 @@
+owner: bpdatal5@gmail.com
+runtimeInfo:
+  capabilities:
+    - gpu=T4
+  mainFunction: generate_voice_audio
+  mainFunctionArgs:
+    - text:str
+    - language:str
+    - return:str
+  pythonVersion: '3.11'
+  systemPackages:
+    - build-essential
+schemaVersion: 2
