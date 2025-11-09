@@ -66,6 +66,9 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
         # Force CPU usage
         torch.set_num_threads(1)
         
+        # Initialize variables for patching (needed for cleanup)
+        original_torchaudio_load = None
+        
         # Patch torch.load to avoid weights_only issues
         original_torch_load = torch.load
         def patched_torch_load(f, map_location=None, pickle_module=None, weights_only=None, **kwargs):
@@ -87,6 +90,61 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
             print("✅ Patched TTS internal loading functions")
         except Exception as e:
             print(f"⚠️  Could not patch TTS internal functions: {e}")
+        
+        # Patch torchaudio.load to use soundfile instead of torchcodec
+        try:
+            import torchaudio
+            original_torchaudio_load = torchaudio.load
+            
+            def patched_torchaudio_load(filepath, frame_offset=0, num_frames=-1, normalize=True, channels_first=True, format=None):
+                """
+                Patch torchaudio.load to use soundfile instead of torchcodec.
+                This avoids FFmpeg/torchcodec dependency issues.
+                """
+                try:
+                    # Load audio using soundfile
+                    # soundfile.read parameters: start (in frames), stop (in frames, exclusive)
+                    if num_frames > 0:
+                        stop_frame = frame_offset + num_frames
+                        audio_data, sample_rate = sf.read(filepath, start=frame_offset, stop=stop_frame, dtype='float32')
+                    else:
+                        # Load from frame_offset to end
+                        audio_data, sample_rate = sf.read(filepath, start=frame_offset, dtype='float32')
+                    
+                    # Convert to torch tensor
+                    audio_tensor = torch.from_numpy(audio_data)
+                    
+                    # Handle channel dimension
+                    if len(audio_tensor.shape) == 1:
+                        # Mono audio - add channel dimension if channels_first
+                        if channels_first:
+                            audio_tensor = audio_tensor.unsqueeze(0)
+                    else:
+                        # Multi-channel audio: soundfile returns (samples, channels)
+                        if channels_first:
+                            # Need (channels, samples) for torchaudio format
+                            audio_tensor = audio_tensor.transpose(0, 1)
+                    
+                    # Normalize if requested (torchaudio normalizes to [-1, 1] range)
+                    if normalize:
+                        max_val = audio_tensor.abs().max()
+                        if max_val > 0:
+                            audio_tensor = audio_tensor / max_val
+                    
+                    return audio_tensor, sample_rate
+                    
+                except Exception as e:
+                    print(f"⚠️  soundfile loading failed, falling back to original: {e}")
+                    # If fallback also fails, it will raise the original error
+                    try:
+                        return original_torchaudio_load(filepath, frame_offset, num_frames, normalize, channels_first, format)
+                    except:
+                        raise e
+            
+            torchaudio.load = patched_torchaudio_load
+            print("✅ Patched torchaudio.load to use soundfile")
+        except Exception as e:
+            print(f"⚠️  Could not patch torchaudio.load: {e}")
         
         # Define file paths
         config_file = os.path.join(model_dir, "config.json")
@@ -174,7 +232,7 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
                     print(f"❌ Method 3 failed: {e3}")
                     raise Exception(f"All loading methods failed. Last error: {e3}")
         
-        # Restore original functions
+        # Restore original functions (keep torchaudio patch active for audio generation)
         builtins.input = original_input
         torch.load = original_torch_load
         try:
@@ -291,6 +349,14 @@ def generate_voice_audio(text: str, language: str = "en") -> str:
     finally:
         # Cleanup
         try:
+            # Restore torchaudio.load if it was patched
+            try:
+                import torchaudio
+                if original_torchaudio_load is not None:
+                    torchaudio.load = original_torchaudio_load
+            except:
+                pass
+            
             if 'cache_dir' in locals() and os.path.exists(cache_dir):
                 shutil.rmtree(cache_dir, ignore_errors=True)
             
